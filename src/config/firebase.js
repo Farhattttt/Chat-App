@@ -1,7 +1,6 @@
-
 import { initializeApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { getFirestore, setDoc, doc} from "firebase/firestore";
+import { getFirestore, setDoc, doc } from "firebase/firestore";
 import { toast } from "react-toastify";
 
 const firebaseConfig = {
@@ -15,47 +14,47 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth= getAuth(app);
-const db =  getFirestore(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const SignUp = async (username,email,password) => {
-     try{
-        const res = await createUserWithEmailAndPassword(auth,email,password);
-        const user = res.user;
-        await setDoc(doc(db,"users",user.uid),{
-            id:user.uid,
-            username:username.toLowerCase(),
-            email,
-            name:"",
-            avatar:"",
-            bio:"Hey there! I am using chat app",
-            lastSeen:Date.now()
-        });
-        await setDoc(doc(db,"chats",user.uid),{
-            chatsData:[]
-        });
-     } catch (error) {
-        console.error(error);
-        toast.error(error.code?.split('/')[1]?.split('-').join(" ") || "An error occured");
-     }
+const SignUp = async (username, email, password) => {
+  try {
+    const res = await createUserWithEmailAndPassword(auth, email, password);
+    const user = res.user;
+    await setDoc(doc(db, "users", user.uid), {
+      id: user.uid,
+      username: username.toLowerCase(),
+      email,
+      name: "",
+      avatar: "",
+      bio: "Hey there! I am using chat app",
+      lastSeen: Date.now()
+    });
+    await setDoc(doc(db, "chats", user.uid), {
+      chatsData: []
+    });
+  } catch (error) {
+    console.error("Sign Up Error:", error);
+    toast.error(error.message || "An error occurred");
+  }
 }
 
-const login = async (email,password) => {
-     try{
-        await signInWithEmailAndPassword(auth,email,password);
-     } catch (error) {
-         console.error(error);
-         toast.error(error.code?.split('/')[1]?.split('-').join(" ") || "An error occured");
-     }
+const login = async (email, password) => {
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error("Login Error:", error);
+    toast.error(error.message || "An error occurred");
+  }
 }
 
 const logout = async () => {
-    try {
-        await signOut(auth);
-    } catch (error) {
-        console.error(error);
-        toast.error(error.code?.split('/')[1]?.split('-').join(" ") || "An error occured");
-    }
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout Error:", error);
+    toast.error(error.message || "An error occurred");
+  }
 }
 
-export {SignUp,login,logout,auth,db};
+export { SignUp, login, logout, auth, db };

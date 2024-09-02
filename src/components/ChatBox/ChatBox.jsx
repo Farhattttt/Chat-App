@@ -14,6 +14,7 @@ const ChatBox = () => {
     const sendMessage = async () => {
         try {
             if (input && messagesId) {
+                // Update messages in the 'messages' collection
                 await updateDoc(doc(db, 'messages', messagesId), {
                     messages: arrayUnion({
                         sId: userData.id,
@@ -22,8 +23,8 @@ const ChatBox = () => {
                     })
                 });
 
+                // Update chat info in 'chats' collection for both users
                 const userIDs = [chatUser.rId, userData.id];
-
                 userIDs.forEach(async (id) => {
                     const userChatsRef = doc(db, 'chats', id);
                     const userChatsSnapshot = await getDoc(userChatsRef);
@@ -31,38 +32,41 @@ const ChatBox = () => {
                     if (userChatsSnapshot.exists()) {
                         const userChatData = userChatsSnapshot.data();
                         const chatIndex = userChatData.chatsData.findIndex((c) => c.messageId === messagesId);
-                        userChatData.chatsData[chatIndex].lastMessage = input.slice(0, 30);
-                        userChatData.chatsData[chatIndex].updatedAt = Date.now();
-                        if (userChatData.chatsData[chatIndex].rId === userData.id) {
-                            userChatData.chatsData[chatIndex].messageSeen = false;
+                        if (chatIndex !== -1) {
+                            userChatData.chatsData[chatIndex].lastMessage = input.slice(0, 30);
+                            userChatData.chatsData[chatIndex].updatedAt = Date.now();
+                            if (userChatData.chatsData[chatIndex].rId === userData.id) {
+                                userChatData.chatsData[chatIndex].messageSeen = false;
+                            }
+                            await updateDoc(userChatsRef, {
+                                chatsData: userChatData.chatsData
+                            });
                         }
-                        await updateDoc(userChatsRef, {
-                            chatsData: userChatData.chatsData
-                        });
                     }
                 });
             }
         } catch (error) {
-            console.error(error.message);
+            console.error("Error sending message:", error.message);
         }
         setInput("");
     };
 
     const sendImage = async (e) => {
         try {
-
             const fileUrl = await upload(e.target.files[0]);
 
             if (fileUrl && messagesId) {
-                await updateDoc(doc(db,'messages',messagesId),{
+                // Update messages in the 'messages' collection
+                await updateDoc(doc(db, 'messages', messagesId), {
                     messages: arrayUnion({
-                        sId:userData.id,
-                        image:fileUrl,
-                        createdAt:new Date()
+                        sId: userData.id,
+                        image: fileUrl,
+                        createdAt: new Date()
                     })
-                })
-                const userIDs = [chatUser.rId, userData.id];
+                });
 
+                // Update chat info in 'chats' collection for both users
+                const userIDs = [chatUser.rId, userData.id];
                 userIDs.forEach(async (id) => {
                     const userChatsRef = doc(db, 'chats', id);
                     const userChatsSnapshot = await getDoc(userChatsRef);
@@ -70,43 +74,47 @@ const ChatBox = () => {
                     if (userChatsSnapshot.exists()) {
                         const userChatData = userChatsSnapshot.data();
                         const chatIndex = userChatData.chatsData.findIndex((c) => c.messageId === messagesId);
-                        userChatData.chatsData[chatIndex].lastMessage = "Image";
-                        userChatData.chatsData[chatIndex].updatedAt = Date.now();
-                        if (userChatData.chatsData[chatIndex].rId === userData.id) {
-                            userChatData.chatsData[chatIndex].messageSeen = false;
+                        if (chatIndex !== -1) {
+                            userChatData.chatsData[chatIndex].lastMessage = "Image";
+                            userChatData.chatsData[chatIndex].updatedAt = Date.now();
+                            if (userChatData.chatsData[chatIndex].rId === userData.id) {
+                                userChatData.chatsData[chatIndex].messageSeen = false;
+                            }
+                            await updateDoc(userChatsRef, {
+                                chatsData: userChatData.chatsData
+                            });
                         }
-                        await updateDoc(userChatsRef, {
-                            chatsData: userChatData.chatsData
-                        });
                     }
                 });
             }
         } catch (error) {
-          toast.error(error.message)
+            toast.error("Error uploading image: " + error.message);
         }
-    }
+    };
 
     const convertTimestamp = (timestamp) => {
-        let date = timestamp.toDate();
+        const date = timestamp.toDate();
         const hour = date.getHours();
         const minute = date.getMinutes();
-
-        if (hour>12) {
-            return hour-12 + ":" + minute + " PM";
-        }
-        else{
-            return hour + ":" + minute + " AM";
-        }
-    }
+        return `${hour > 12 ? hour - 12 : hour}:${minute < 10 ? '0' + minute : minute} ${hour >= 12 ? 'PM' : 'AM'}`;
+    };
 
     useEffect(() => {
         if (messagesId) {
-            const unSub = onSnapshot(doc(db, 'messages', messagesId), (res) => {
-                setMessages(res.data().messages.reverse());
+            const messageRef = doc(db, 'messages', messagesId);
+            const unSub = onSnapshot(messageRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    console.log("Messages updated:", data);
+                    setMessages(data.messages.reverse());
+                } else {
+                    console.log("No such document!");
+                }
+            }, (error) => {
+                console.error("Error fetching document:", error);
             });
-            return () => {
-                unSub();
-            };
+
+            return () => unSub();
         }
     }, [messagesId]);
 
@@ -114,16 +122,16 @@ const ChatBox = () => {
         <div className='chat-box'>
             <div className="chat-user">
                 <img className='avatar' src={chatUser.userData.avatar} alt="User Avatar" />
-                <p>{chatUser.userData.name} {Date.now()-chatUser.userData.lastSeen <= 70000 ?<img className='dot' src={assets.green_dot} alt="" /> : null}</p>
+                <p>{chatUser.userData.name} {Date.now() - chatUser.userData.lastSeen <= 70000 ? <img className='dot' src={assets.green_dot} alt="" /> : null}</p>
                 <img src={assets.help_icon} className='help' alt="Help Icon" />
             </div>
             <div className="chat-msg">
                 {messages.map((msg, index) => (
                     <div key={index} className={msg.sId === userData.id ? "s-msg" : "r-msg"}>
-                        {msg["image"]
-                         ? <img className='msg-img' src={msg.image} alt="" />
-                         : <p className="msg">{msg.text}</p>
-                         }
+                        {msg.image
+                            ? <img className='msg-img' src={msg.image} alt="" />
+                            : <p className="msg">{msg.text}</p>
+                        }
                         <div>
                             <img className='avatar' src={msg.sId === userData.id ? userData.avatar : chatUser.userData.avatar} alt="User Avatar" />
                             <p>{convertTimestamp(msg.createdAt)}</p>
